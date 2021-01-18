@@ -1,0 +1,162 @@
+version: "3"
+
+services:
+    nginx:
+        image: nginx:alpine
+        container_name: nginx
+        ports:
+            - 127.0.0.1:${NGINX_PORT}:80
+        privileged: true
+        volumes:
+            - ${WEB_ROOT}:/var/www/html/:rw    # 需要和 php 的目录一致
+            - ${NGINX_CONF}/nginx.conf:/etc/nginx/nginx.conf:ro # nginx 配置
+            - ${NGINX_CONF}/conf.d:/etc/nginx/conf.d  
+            - ${LOG}/nginx:/var/log/nginx/  # nginx 日志
+        environment:
+            TZ: "$TZ"
+        networks:
+            aoligei:
+                ipv4_address: 172.20.128.2
+
+
+    php56:
+        build: 
+            context: ./build/php/php56/
+        expose:
+            - "9000"
+            - "9003"
+        container_name: php56
+        privileged: true
+        working_dir: /var/www/html
+        volumes:
+            - ${WEB_ROOT}/site1/:/var/www/html/:rw
+            - ${COMPOSER}/php56:/root/.composer/
+            - ${PHP56_CONF}/php.ini:/usr/local/etc/php/php.ini
+            - ${PHP56_CONF}/php-fpm.d/www.conf:/usr/local/etc/php-fpm.d/www.conf:rw
+            - ${LOG}/xdebug:/var/log/xdebug/:rw
+            - ${LOG}/php-fpm/php56/:/var/log/php-fpm/:rw  
+            #PHP-FPM的日志都会输出到Nginx的日志中，所以不需要额外配置。如果确实需要ke取消注释。
+        networks:
+            aoligei:
+        environment:
+            TZ: "$TZ"
+        extra_hosts:
+            - site1.com:172.20.128.3
+
+
+    php72:
+        build: 
+            context: ./build/php/php72/
+        expose:
+            - "9000"
+            - "9003"
+        container_name: php72
+        privileged: true
+        working_dir: /var/www/html
+        volumes:
+            - ${WEB_ROOT}/site2/:/var/www/html/:rw
+            - ${COMPOSER}/php72:/root/.composer/
+            - ${PHP72_CONF}/php.ini:/usr/local/etc/php/php.ini
+            - ${PHP72_CONF}/php-fpm.d/www.conf:/usr/local/etc/php-fpm.d/www.conf:rw
+            - ${LOG}/xdebug:/var/log/xdebug/:rw
+            - ${LOG}/php-fpm/php72/:/var/log/php-fpm/:rw
+            #PHP-FPM的日志都会输出到Nginx的日志中，所以不需要额外配置。如果确实需要ke取消注释。
+
+        networks:
+            aoligei:
+        environment:
+            TZ: "$TZ"
+        extra_hosts:
+            - site2.com:172.20.128.4 
+
+
+    php73:
+        build: 
+            context: ./build/php/php73/
+        expose:
+            - "9000"
+            - "9003"
+        container_name: php73
+        ports:
+            - 8000:8000
+        privileged: true
+        working_dir: /var/www/html
+        volumes:
+            - ${WEB_ROOT}/site3/:/var/www/html/:rw
+            - ${COMPOSER}/php73:/root/.composer/
+            - ${PHP73_CONF}/php.ini:/usr/local/etc/php/php.ini
+            - ${PHP73_CONF}/php-fpm.d/www.conf:/usr/local/etc/php-fpm.d/www.conf:rw
+            - ${LOG}/xdebug:/var/log/xdebug/:rw
+            - ${LOG}/php-fpm/php73/:/var/log/php-fpm/:rw
+        networks:
+            aoligei:
+        environment:
+            TZ: "$TZ"
+        extra_hosts:
+            - site3.com:172.20.128.5  
+
+    mysql:
+        image: mysql:${MYSQL_VERSION}
+        ports:
+            - 127.0.0.1:${MYSQL_PORT}:3306
+        privileged: true
+        container_name: mysql
+        restart: always
+        environment:
+            MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+            MYSQL_USER: ${MYSQL_USER}
+            MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+            TZ: "$TZ"
+        volumes:
+            - ${MYSQL_CONF}:/etc/mysql/conf.d/:ro
+            - ${MYSQL_DATA}:/var/lib/mysql/:rw
+        command: --default-authentication-plugin=mysql_native_password
+
+        networks:
+            aoligei:
+    
+    # redis:
+    #     image: redis:${REDIS_VERSION}
+    #     container_name: redis
+    #     restart: always
+    #     privileged: true
+    #     environment:
+    #         TZ: "$TZ"
+    #     volumes:
+    #         # redis在shutdown的时候会保存rdb文件,或者save命令
+    #         - ${REDIS_DATA}:/data:rw
+    #         - ${REDIS_CONF}:/etc/redis/redis.conf:ro
+    #     ports:
+    #         - 127.0.0.1:${REDIS_PORT}:6379
+    #     command: [ redis-server, "/etc/redis/redis.conf" ]
+
+    #     networks:
+    #         aoligei:
+        
+    # mongodb:
+    #     image: mongo:${MONGO_VERSION}
+    #     container_name: mongodb
+    #     ports:
+    #         - 127.0.0.1:${MONGO_PORT}:27017
+    #     restart: always
+    #     privileged: true
+    #     environment:
+    #         TZ: "$TZ"
+    #     volumes:
+    #         - ${MONGO_DATA}/db:/data/db:rw #data
+    #         - ${MONGO_DATA}/configdb:/data/configdb:rw #data
+    #     environment:
+    #         MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME}
+    #         MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+    #     command: 
+    #         --auth
+    #     networks:
+    #         aoligei:
+
+
+
+networks:
+    aoligei:
+        ipam:
+            config:
+                - subnet: 172.20.0.0/16
